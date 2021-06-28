@@ -1,6 +1,6 @@
 ---
-{% if netplan_configuration['head_comment'] is defined %}
-# {{ netplan_configuration['netplan_maintained_comment'] }}
+{% if netplan_managed_comment is not none %}
+# {{ netplan_managed_comment }}
 {% endif %}
 network:
   version: {{ netplan_configuration['network']['version']|default('2') }}
