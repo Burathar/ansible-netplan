@@ -11,6 +11,16 @@
       paths:
         - 'vars'
 
+- name: Move content of INTERFACE to the correct interface name.
+  set_fact:
+    network: "{{ network | combine({'ethernets': { ansible_default_ipv4.interface : network['ethernets']['INTERFACE'] }}, recursive=True) }}"
+  when: network.ethernets is defined and network.ethernets.INTERFACE is defined
+
+- name: Remove the INTERFACE key 
+  set_fact:
+    network: "{% set removed=network['ethernets'].pop('INTERFACE') %}{{network}}"
+  when: network.ethernets is defined and network.ethernets.INTERFACE is defined
+
 - name: Configuring Netplan
   template:
     src: etc/netplan/config.yaml.j2
