@@ -28,5 +28,4 @@
     mode: "{{ netplan_config_file_mode}}"
     backup: true
   become: true
-  when: netplan_configuration != []
   notify: netplan generate config
