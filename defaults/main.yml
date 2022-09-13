@@ -13,8 +13,26 @@ netplan_renderer:
 
 netplan_managed_comment: "{{ ansible_managed }}"
 
+network: 
+  ethernets:
+    INTERFACE:
+      addresses:
+      - "{{ hostvars[inventory_hostname].ansible_host }}/24"
+      gateway4: "{{ default_gateway }}"
+      nameservers: "{{ default_nameservers }}"
+  version: 2
+
 netplan_configuration:
-  {}
+  network: "{{ network }}"
+
+default_nameservers:
+  addresses:
+  - "{{ primary_nameserver }}"
+  - "{{ secondary_nameserver }}"
+  search: "{{ searchdomains }}"
+
+#netplan_configuration:
+#  {}
   # network:
   #   version: 2
   #   ethernets:

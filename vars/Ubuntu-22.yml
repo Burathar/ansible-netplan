@@ -1,0 +1,12 @@
+---
+
+network: 
+  ethernets:
+    INTERFACE:
+      addresses:
+      - "{{ hostvars[inventory_hostname].ansible_host }}/24"
+      routes:
+      - to: default
+        via: "{{ default_gateway }}"
+      nameservers: "{{ default_nameservers }}"
+  version: 2

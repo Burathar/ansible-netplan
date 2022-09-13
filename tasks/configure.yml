@@ -1,4 +1,16 @@
 ---
+- name: Include Netplan vars
+  ansible.builtin.include_vars: "{{ lookup('ansible.builtin.first_found', params) }}"
+  vars:
+    params:
+      files:
+        - '{{ansible_distribution}}-{{ansible_distribution_major_version}}.yaml'
+        - '{{ansible_distribution}}.yaml'
+        - '{{ansible_os_family}}.yaml'
+        - default.yaml
+      paths:
+        - 'vars'
+
 - name: Configuring Netplan
   template:
     src: etc/netplan/config.yaml.j2
