@@ -14,6 +14,7 @@ netplan_renderer:
 netplan_managed_comment: "{{ ansible_managed }}"
 
 network: 
+  default: true # This key is added to determain if hostvars or otherwise has already overwritten this default value
   ethernets:
     INTERFACE:
       addresses:

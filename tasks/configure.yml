@@ -10,6 +10,7 @@
         - default.yml
       paths:
         - 'vars'
+  when: network.default is defined and network.default
 
 - name: Move content of INTERFACE to the correct interface name.
   set_fact:
