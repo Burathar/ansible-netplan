@@ -30,9 +30,7 @@ netplan_configuration:
   network: "{{ network }}"
 
 default_nameservers:
-  addresses:
-  - "{{ primary_nameserver }}"
-  - "{{ secondary_nameserver }}"
+  addresses: "{{ [ primary_nameserver, secondary_nameserver ] | select() }}" # Drops nameservers if their value is null
   search: "{{ searchdomains }}"
 
 #netplan_configuration:
