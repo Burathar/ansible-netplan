@@ -16,15 +16,7 @@ netplan_managed_comment: "{{ ansible_managed }}"
 # CIDR subnet prefix size
 primary_address_prefix_bits: 24
 
-network: 
-  default: true # This key is added to determain if hostvars or otherwise has already overwritten this default value
-  ethernets:
-    INTERFACE:
-      addresses:
-      - "{{ hostvars[inventory_hostname].ansible_host }}/{{ primary_address_prefix_bits }}"
-      gateway4: "{{ default_gateway }}"
-      nameservers: "{{ default_nameservers }}"
-  version: 2
+network: null
 
 netplan_configuration:
   network: "{{ network }}"

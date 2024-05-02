@@ -1,4 +1,94 @@
 ---
+
+# Routering:
+
+# Als een host 1 interface heeft: 
+# - GW is het 1e adres van het subnet van het 1e ip van de interface
+
+# Als een host 2 interfaces heeft:
+# - GW is het 1e adres van het subnet waar in de host een publiek ip adres heeft.
+# - Er is ook een route naar 192.168.0.0/16 op de andere interface, met als GW het 1e adres van dat subnet
+
+# Als een host de variable 'custom_gateway' set heeft
+# - Custom_gateway is de GW, op de interface waar een adres zit in het zelfde subnet als de GW.
+# - Als de host een intern ip heeft is er ook een route naar 192.168.0.0/16 op de interface van dat ip, met als GW het 1e adres van dat subnet
+
+# Als een host in zijn config context de variable 'Netplan_override' heeft, gebruik dan die config.
+
+
+- name: Create interface_list
+  set_fact:
+    interface_list: "{% set interface_list = interface_list|default([]) + [ansible_facts[item]] %}{{ interface_list|list }}"
+  when: ansible_facts[item]['type'] == 'ether'
+  with_items:
+    - "{{ ansible_facts.interfaces }}"
+
+# - name: print1
+#   debug:
+#     msg:
+#     - "config_context: {{config_context[0]}}"
+
+- name: interface local_interfaces
+  set_fact:
+    netplan_interfaces: "{{ (netplan_interfaces | default({})) | combine( {interface_name: interface_template} ) }}"
+  loop: "{{ interfaces }}"
+  vars:
+    interface_name: "{{ (interface_list | selectattr('macaddress', 'equalto', item.mac_address | lower) | first).device }}"
+    interface_addresses: "{{ item.ip_addresses | map(attribute='address') }}"
+    nameservers_template:
+      addresses:
+      - "{{ config_context[0].primary_nameserver }}"
+      - "{{ config_context[0].secondary_nameserver }}"
+      search: "{{ config_context[0].searchdomains }}"
+    first_address_is_local: "{{ (item.ip_addresses | first).address | ansible.utils.ipaddr('192.168.0.0/16') }}"
+    custom_gw_prefix: "{{ custom_fields.custom_gateway.address | default('0.0.0.0/0') | ansible.utils.ipaddr('network/prefix') }}"
+    route_default_to_custom_gw:
+    - to: default
+      via: "{{ custom_fields.custom_gateway.address | default('0.0.0.0/0') | ansible.utils.ipaddr('address') }}"
+    route_default_to_first_in_range:
+    - to: default
+      via: "{{ (item.ip_addresses | first).address | ansible.utils.ipaddr('1') }}"
+    route_internal_to_first_in_range:
+    - to: 192.168.0.0/16
+      via: "{{ (item.ip_addresses | first).address | ansible.utils.ipaddr('1') }}"
+    # Hier staat de netplan config logica geïmplementeerd
+    routes_template: "{% if custom_fields.custom_gateway is defined and custom_fields.custom_gateway %}
+                        {% if item.ip_addresses | map(attribute='address') | ansible.utils.ipaddr(custom_gw_prefix) %}
+                          {{ route_default_to_custom_gw }}
+                        {% endif %}
+                        {% if first_address_is_local %}{{ route_internal_to_first_in_range }}{% endif %}
+                      {% elif interfaces | length == 1 %}
+                        {{ route_default_to_first_in_range }}
+                      {% elif interfaces | length == 2 and first_address_is_local %}
+                        {{ route_internal_to_first_in_range }}
+                      {% elif interfaces | length == 2 %}
+                        {{ route_default_to_first_in_range }}
+                      {% endif %}"
+    
+    interface_template:
+      addresses: "{{ interface_addresses }}"
+      nameservers: "{{ 
+        (primary_ip6 is not defined and primary_ip4 in interface_addresses | map('ansible.utils.ipaddr', 'address') or
+        primary_ip6 in interface_addresses | map('ansible.utils.ipaddr', 'address')) | 
+        ternary(nameservers_template, omit) }}"
+      routes: "{{ routes_template | trim | default(omit, true) }}"
+      #routes: "{{ (interfaces | length == 1) | ternary(routes_single_template, omit) }}"
+
+    #  - to: default
+    #    via: 1.2.3.4
+
+- name: print2
+  debug:
+    msg:
+    - "netplan_interfaces: {{netplan_interfaces}}"
+#    - "test_1: {{test_1}}"
+#    - "test_2: {{test_2}}"
+#    - "test_3: {{test_3}}"
+#    - "test_4: {{test_4}}"
+
+- name: stop
+  fail:
+
 - name: Include Netplan vars
   ansible.builtin.include_vars: "{{ lookup('ansible.builtin.first_found', params) }}"
   vars:
@@ -10,17 +100,10 @@
         - default.yml
       paths:
         - 'vars'
-  when: network.default is defined and network.default
 
-- name: Move content of INTERFACE to the correct interface name.
-  set_fact:
-    network: "{{ network | combine({'ethernets': { ansible_facts.default_ipv4.interface : network['ethernets']['INTERFACE'] }}, recursive=True) }}"
-  when: network.ethernets is defined and network.ethernets.INTERFACE is defined
-
-- name: Remove the INTERFACE key 
-  set_fact:
-    network: "{% set removed=network['ethernets'].pop('INTERFACE') %}{{network}}"
-  when: network.ethernets is defined and network.ethernets.INTERFACE is defined
+- name: Show network variable
+  ansible.builtin.debug:
+    msg: "{{ network }}"
 
 - name: Configuring Netplan
   template:
