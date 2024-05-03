@@ -35,6 +35,7 @@
 # - Als 'Primary IPv4' of 'Primary IPv6' niet is ingesteld op een VM, krijgt hij geen gateway voor die IP familie
 # - Als een VM meerdere interfaces heeft MOET zijn Primary IPv4 adres een adres op zijn publieke interface zijn.
 # - Alle IP adressen met status 'SLAAC' moeten kloppende EUI-64 IPv6 adressen zijn
+# - Alle interne IPv4 adressen moeten een correct dns_name veld hebben
 
 - name: Create interface_list
   set_fact:
@@ -53,7 +54,7 @@
     # interface naam. Bijvoorbeeld ens33
     interface_name: "{{ (interface_list | selectattr('macaddress', 'equalto', item.mac_address | lower) | first).device }}"
 
-    accept_ra: "{{ 'slaac' in (item.ip_addresses | map(attribute='status') | flatten | map(attribute='value')) }}"
+    accept_ra: "{{ 'slaac' in (item.ip_addresses | map(attribute='status.value')) }}"
 
     ## Nameservers template
     nameservers_template:
@@ -64,6 +65,7 @@
 
     ## Lokale variablen nodig voor het routes template
     interface_addresses: "{{ item.ip_addresses | map(attribute='address') }}"
+    interface_addresses_filtered: "{{ item.ip_addresses | rejectattr('status.value', 'equalto', 'slaac') | map(attribute='address') }}"
     # Dit geeft het primary IPv4 adres met CIDR notatie terug, óf false als dat adres niet bestaat op deze interface
     primary_ip4_addr: "{{ interface_addresses | select('search', primary_ip4) | default([false], true) | first }}"
     primary_ip6_addr: "{{ interface_addresses | select('search', primary_ip6) | default([false], true) | first }}"
@@ -124,7 +126,7 @@
     # Het template voor iedere individuele interface
     interface_template:
       accept-ra: "{{ accept_ra }}"
-      addresses: "{{ interface_addresses }}"
+      addresses: "{{ interface_addresses_filtered }}"
       nameservers: "{{ 
         (primary_ip6 is not defined and primary_ip4 in interface_addresses | map('ansible.utils.ipaddr', 'address') or
         primary_ip6 in interface_addresses | map('ansible.utils.ipaddr', 'address')) | 
