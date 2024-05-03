@@ -35,7 +35,6 @@
 # - Als 'Primary IPv4' of 'Primary IPv6' niet is ingesteld op een VM, krijgt hij geen gateway voor die IP familie
 # - Als een VM meerdere interfaces heeft MOET zijn Primary IPv4 adres een adres op zijn publieke interface zijn.
 # - Alle IP adressen met status 'SLAAC' moeten kloppende EUI-64 IPv6 adressen zijn
-# - Alle interne IPv4 adressen moeten een correct dns_name veld hebben
 
 - name: Create interface_list
   set_fact:
@@ -139,9 +138,9 @@
   when:
     - config_context[0].netplan_override is defined and config_context[0].netplan_override
 
-- name: Show netplan configuration
-  ansible.builtin.debug:
-    msg: "{{ netplan_configuration }}"
+# - name: Show netplan configuration
+#   ansible.builtin.debug:
+#     msg: "{{ netplan_configuration }}"
 
 - name: Configuring Netplan
   template:
