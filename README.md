@@ -81,6 +81,41 @@ my_wireguard_private_key: !vault |
           ....
 ```
 
+## Netplan Override
+
+When a host needs custom configuration which cannot be supplied by this task, create a `netplan_override` variable in the host's Netbox Config Context. This will then be used without alterations.
+
+Example config context:
+```json
+{
+    "netplan_override": {
+        "network": {
+            "version": 2,
+            "ethernets": {
+                "ens33": {
+                    "addresses": ["192.168.136.134/24"],
+                    "nameservers": {
+                        "addresses": ["192.168.0.128", "192.168.130.3"],
+                        "search": ["ad.eljakim.nl"]
+                    },
+                    "routes": [{
+                        "to": "192.168.0.0/16",
+                        "via": "192.168.136.1"
+                    }]
+                },
+                "ens35": {
+                    "addresses": ["62.68.84.56/24"],
+                    "routes": [{
+                        "to": "default",
+                        "via": "62.68.84.1"
+                    }]
+                }
+            }
+        }
+    }
+}
+```
+
 ## License
 
 MIT

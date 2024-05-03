@@ -13,17 +13,13 @@ netplan_renderer:
 
 netplan_managed_comment: "{{ ansible_managed }}"
 
-# CIDR subnet prefix size
-primary_address_prefix_bits: 24
-
-network: null
-
 netplan_configuration:
-  network: "{{ network }}"
+  network:
+    version: 2
+    ethernets: "{{ netplan_ethernets }}"
 
-default_nameservers:
-  addresses: "{{ [ primary_nameserver, secondary_nameserver ] | select() }}" # Drops nameservers if their value is null
-  search: "{{ searchdomains }}"
+# The internal IPv6 network. Used for dual-interface routing.
+netplan_local_prefix: 192.168.0.0/16
 
 #netplan_configuration:
 #  {}
