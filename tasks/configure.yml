@@ -46,9 +46,29 @@
 - name: Generate ethernet config
   set_fact:
     netplan_ethernets: "{{ (netplan_ethernets | default({})) | combine( {interface_name: interface_template} ) }}"
+  # debug:
+  #   msg:
+  #   - "nameservers_template: {{nameservers_template}}"
+  #   - "interface_addresses: {{interface_addresses}}"
+  #   - "interface_addresses_filtered: {{interface_addresses_filtered}}"
+  #   - "primary_ip4_addr: {{primary_ip4_addr}}"
+  #   - "primary_ip6_addr: {{primary_ip6_addr}}"
+  #   - "custom_gw4_defined: {{custom_gw4_defined}}"
+  #   - "custom_gw6_defined: {{custom_gw6_defined}}"
+  #   - "first_ipv4_is_local: {{first_ipv4_is_local}}"
+  #   - "custom_gw4_prefix: {{custom_gw4_prefix}}"
+  #   - "custom_gw6_prefix: {{custom_gw6_prefix}}"
+  #   - "route_default_to_custom_gw4: {{route_default_to_custom_gw4}}"
+  #   - "route_default_to_custom_gw6: {{route_default_to_custom_gw6}}"
+  #   - "route4_default_to_first_in_range: {{route4_default_to_first_in_range}}"
+  #   - "route6_default_to_first_in_range: {{route6_default_to_first_in_range}}"
+  #   - "route4_internal_to_first_in_range: {{route4_internal_to_first_in_range}}"
+  #   - "routes_template: {{routes_template}}"
+  #   - "interface_template: {{interface_template}}"
   loop: "{{ interfaces }}"
   when:
   - config_context[0].netplan_override is not defined or not config_context[0].netplan_override
+  - item.enabled
   vars:
     # interface naam. Bijvoorbeeld ens33
     interface_name: "{{ (interface_list | selectattr('macaddress', 'equalto', item.mac_address | lower) | first).device }}"
@@ -63,31 +83,31 @@
       search: "{{ config_context[0].searchdomains }}"
 
     ## Lokale variablen nodig voor het routes template
-    interface_addresses: "{{ item.ip_addresses | map(attribute='address') }}"
-    interface_addresses_filtered: "{{ item.ip_addresses | rejectattr('status.value', 'equalto', 'slaac') | map(attribute='address') }}"
+    interface_addresses: "{{ item.ip_addresses | selectattr('status.value', 'in', ['active','slaac']) | map(attribute='address') }}"
+    interface_addresses_filtered: "{{ item.ip_addresses | selectattr('status.value', 'equalto', 'active') | map(attribute='address') }}"
     # Dit geeft het primary IPv4 adres met CIDR notatie terug, óf false als dat adres niet bestaat op deze interface
     primary_ip4_addr: "{{ interface_addresses | select('search', primary_ip4) | default(['empty'], true) | first }}"
     primary_ip6_addr: "{{ interface_addresses | select('search', primary_ip6) | default(['empty'], true) | first }}"
     custom_gw4_defined: "{{ custom_fields.custom_gateway4 is defined and custom_fields.custom_gateway4 }}"
     custom_gw6_defined: "{{ custom_fields.custom_gateway6 is defined and custom_fields.custom_gateway6 }}"
     first_ipv4_is_local: "{{ interface_addresses | first | ansible.utils.ipaddr(netplan_local_prefix) }}"
-    custom_gw4_prefix: "{{ custom_fields.custom_gateway4.address | default('0.0.0.0/0') | ansible.utils.ipaddr('network/prefix') }}"
-    custom_gw6_prefix: "{{ custom_fields.custom_gateway6.address | default('::/0') | ansible.utils.ipaddr('network/prefix') }}"
+    custom_gw4_prefix: "{{ custom_fields.custom_gateway4.address | default('0.0.0.0/0', true) | ansible.utils.ipaddr('network/prefix') }}"
+    custom_gw6_prefix: "{{ custom_fields.custom_gateway6.address | default('::/0', true) | ansible.utils.ipaddr('network/prefix') }}"
     route_default_to_custom_gw4:
       to: default
-      via: "{{ custom_fields.custom_gateway4.address | default('empty') | ansible.utils.ipaddr('address') }}"
+      via: "{{ custom_fields.custom_gateway4.address | default('empty', true) | ansible.utils.ipaddr('address') }}"
     route_default_to_custom_gw6:
       to: default
-      via: "{{ custom_fields.custom_gateway6.address | default('empty') | ansible.utils.ipaddr('address') }}"
+      via: "{{ custom_fields.custom_gateway6.address | default('empty', true) | ansible.utils.ipaddr('address') }}"
     route4_default_to_first_in_range:
       to: default
-      via: "{{ primary_ip4_addr | ansible.utils.ipaddr('1') | default('empty') | ansible.utils.ipaddr('address') }}"
+      via: "{{ primary_ip4_addr | ansible.utils.ipaddr('1') | default('empty', true) | ansible.utils.ipaddr('address') }}"
     route6_default_to_first_in_range:
       to: default
-      via: "{{ primary_ip6_addr | ansible.utils.ipaddr('1') | default('empty') | ansible.utils.ipaddr('address') }}"
+      via: "{{ primary_ip6_addr | ansible.utils.ipaddr('1') | default('empty', true) | ansible.utils.ipaddr('address') }}"
     route4_internal_to_first_in_range:
       to: "{{ netplan_local_prefix }}"
-      via: "{{ (item.ip_addresses | first).address | ansible.utils.ipaddr('1') | ansible.utils.ipaddr('address') }}"
+      via: "{{ interface_addresses | first | ansible.utils.ipaddr('1') | ansible.utils.ipaddr('address') }}"
     
     ## Routes template: hier staat de netplan config logica geïmplementeerd
     routes_template: "[{% if custom_gw4_defined or custom_gw6_defined %}
@@ -127,8 +147,8 @@
       accept-ra: "{{ accept_ra }}"
       addresses: "{{ interface_addresses_filtered }}"
       nameservers: "{{ 
-        (primary_ip6 is not defined and primary_ip4 in interface_addresses | map('ansible.utils.ipaddr', 'address') or
-        primary_ip6 in interface_addresses | map('ansible.utils.ipaddr', 'address')) | 
+        (primary_ip6 is not defined and primary_ip4 in (interface_addresses | map('ansible.utils.ipaddr', 'address')) or
+        primary_ip6 in (interface_addresses | map('ansible.utils.ipaddr', 'address'))) | 
         ternary(nameservers_template, omit) }}"
       routes: "{{ routes_template | default('{}', true) | replace(\"'\", '\"') | default('omit', true) }}"
 
