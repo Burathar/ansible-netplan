@@ -66,13 +66,13 @@
     interface_addresses: "{{ item.ip_addresses | map(attribute='address') }}"
     interface_addresses_filtered: "{{ item.ip_addresses | rejectattr('status.value', 'equalto', 'slaac') | map(attribute='address') }}"
     # Dit geeft het primary IPv4 adres met CIDR notatie terug, óf false als dat adres niet bestaat op deze interface
-    primary_ip4_addr: "{{ interface_addresses | select('search', primary_ip4) | default([false], true) | first }}"
-    primary_ip6_addr: "{{ interface_addresses | select('search', primary_ip6) | default([false], true) | first }}"
+    primary_ip4_addr: "{{ interface_addresses | select('search', primary_ip4) | default(['empty'], true) | first }}"
+    primary_ip6_addr: "{{ interface_addresses | select('search', primary_ip6) | default(['empty'], true) | first }}"
     custom_gw4_defined: "{{ custom_fields.custom_gateway4 is defined and custom_fields.custom_gateway4 }}"
     custom_gw6_defined: "{{ custom_fields.custom_gateway6 is defined and custom_fields.custom_gateway6 }}"
     first_ipv4_is_local: "{{ interface_addresses | first | ansible.utils.ipaddr(netplan_local_prefix) }}"
     custom_gw4_prefix: "{{ custom_fields.custom_gateway4.address | default('0.0.0.0/0') | ansible.utils.ipaddr('network/prefix') }}"
-    custom_gw6_prefix: "{{ custom_fields.custom_gateway6.address | default('[::/0]') | ansible.utils.ipaddr('network/prefix') }}"
+    custom_gw6_prefix: "{{ custom_fields.custom_gateway6.address | default('::/0') | ansible.utils.ipaddr('network/prefix') }}"
     route_default_to_custom_gw4:
       to: default
       via: "{{ custom_fields.custom_gateway4.address | default('empty') | ansible.utils.ipaddr('address') }}"
@@ -81,10 +81,10 @@
       via: "{{ custom_fields.custom_gateway6.address | default('empty') | ansible.utils.ipaddr('address') }}"
     route4_default_to_first_in_range:
       to: default
-      via: "{{ primary_ip4_addr | ansible.utils.ipaddr('1') | ansible.utils.ipaddr('address') }}"
+      via: "{{ primary_ip4_addr | ansible.utils.ipaddr('1') | default('empty') | ansible.utils.ipaddr('address') }}"
     route6_default_to_first_in_range:
       to: default
-      via: "{{ primary_ip6_addr | ansible.utils.ipaddr('1') | ansible.utils.ipaddr('address') }}"
+      via: "{{ primary_ip6_addr | ansible.utils.ipaddr('1') | default('empty') | ansible.utils.ipaddr('address') }}"
     route4_internal_to_first_in_range:
       to: "{{ netplan_local_prefix }}"
       via: "{{ (item.ip_addresses | first).address | ansible.utils.ipaddr('1') | ansible.utils.ipaddr('address') }}"
