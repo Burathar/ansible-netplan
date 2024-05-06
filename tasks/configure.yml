@@ -105,19 +105,19 @@
                           {% endif %}
                         {% endif %}
                       {% elif interfaces | length == 1 %}
-                        {% if primary_ip4_addr %}
+                        {% if primary_ip4_addr != 'empty' %}
                           {{ route4_default_to_first_in_range }},
                         {% endif %}
-                        {% if primary_ip6_addr and not accept_ra %}
+                        {% if primary_ip6_addr != 'empty' and not accept_ra %}
                           {{ route6_default_to_first_in_range }},
                         {% endif %}
                       {% elif interfaces | length == 2 %}
-                        {% if primary_ip4_addr %}
+                        {% if primary_ip4_addr != 'empty' %}
                           {{ route4_default_to_first_in_range }},
                         {% elif first_ipv4_is_local %}
                           {{ route4_internal_to_first_in_range }},
                         {% endif %}
-                        {% if primary_ip6_addr and not accept_ra %}
+                        {% if primary_ip6_addr != 'empty' and not accept_ra %}
                           {{ route6_default_to_first_in_range }},
                         {% endif %}
                       {% endif %}]"
