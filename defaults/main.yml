@@ -21,6 +21,10 @@ netplan_configuration:
 # The internal IPv6 network. Used for dual-interface routing.
 netplan_local_prefix: 192.168.0.0/16
 
+netplan_primary_nameserver: 1.1.1.1
+netplan_secondary_nameserver: 1.0.0.1
+netplan_searchdomains: []
+
 #netplan_configuration:
 #  {}
   # network:

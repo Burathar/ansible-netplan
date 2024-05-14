@@ -75,12 +75,15 @@
 
     accept_ra: "{{ 'slaac' in (item.ip_addresses | map(attribute='status.value')) }}"
 
+    # Older Netplan versions require 'gateway4' or 'gateway6' instead of 'route: - to: default'
+    legacy_gateway: "{{ ansible_facts.distribution_version is version('20.04', '<=') }}"
+
     ## Nameservers template
     nameservers_template:
       addresses:
-      - "{{ config_context[0].primary_nameserver }}"
-      - "{{ config_context[0].secondary_nameserver }}"
-      search: "{{ config_context[0].searchdomains }}"
+      - "{{ netplan_primary_nameserver }}"
+      - "{{ netplan_secondary_nameserver }}"
+      search: "{{ netplan_searchdomains }}"
 
     ## Lokale variablen nodig voor het routes template
     interface_addresses: "{{ item.ip_addresses | selectattr('status.value', 'in', ['active','slaac']) | map(attribute='address') }}"
@@ -112,7 +115,7 @@
     ## Routes template: hier staat de netplan config logica geïmplementeerd
     routes_template: "[{% if custom_gw4_defined or custom_gw6_defined %}
                         {% if custom_gw4_defined %}
-                          {% if interface_addresses | ansible.utils.ipaddr(custom_gw4_prefix) %}
+                          {% if interface_addresses | ansible.utils.ipaddr(custom_gw4_prefix) and not legacy_gateway %}
                             {{ route_default_to_custom_gw4 }},
                           {% endif %}
                           {% if first_ipv4_is_local %}
@@ -120,11 +123,11 @@
                           {% endif %}
                         {% endif %}
                         {% if custom_gw6_defined %}
-                          {% if interface_addresses | ansible.utils.ipaddr(custom_gw6_prefix) %}
+                          {% if interface_addresses | ansible.utils.ipaddr(custom_gw6_prefix) and not legacy_gateway %}
                             {{ route_default_to_custom_gw6 }},
                           {% endif %}
                         {% endif %}
-                      {% elif interfaces | length == 1 %}
+                      {% elif interfaces | length == 1 and not legacy_gateway %}
                         {% if primary_ip4_addr != 'empty' %}
                           {{ route4_default_to_first_in_range }},
                         {% endif %}
@@ -132,12 +135,12 @@
                           {{ route6_default_to_first_in_range }},
                         {% endif %}
                       {% elif interfaces | length == 2 %}
-                        {% if primary_ip4_addr != 'empty' %}
+                        {% if primary_ip4_addr != 'empty' and not legacy_gateway %}
                           {{ route4_default_to_first_in_range }},
                         {% elif first_ipv4_is_local %}
                           {{ route4_internal_to_first_in_range }},
                         {% endif %}
-                        {% if primary_ip6_addr != 'empty' and not accept_ra %}
+                        {% if primary_ip6_addr != 'empty' and not accept_ra and not legacy_gateway %}
                           {{ route6_default_to_first_in_range }},
                         {% endif %}
                       {% endif %}]"
@@ -150,7 +153,17 @@
         (primary_ip6 is not defined and primary_ip4 in (interface_addresses | map('ansible.utils.ipaddr', 'address')) or
         primary_ip6 in (interface_addresses | map('ansible.utils.ipaddr', 'address'))) | 
         ternary(nameservers_template, omit) }}"
-      routes: "{{ routes_template | default('{}', true) | replace(\"'\", '\"') | default('omit', true) }}"
+      routes: "{{ routes_template | replace(\"'\", '\"') | replace('[]', '') | default(omit, true) }}"
+      gateway4: "{{ legacy_gateway | ternary(
+        custom_fields.custom_gateway4.address | default(
+          primary_ip4_addr | ansible.utils.ipaddr('1') | default('empty', true) 
+          | ansible.utils.ipaddr('address'), true)
+        , omit )}}"
+      gateway6: "{{ legacy_gateway | ternary(
+        custom_fields.custom_gateway6.address | default(
+          primary_ip6_addr | ansible.utils.ipaddr('1') | default('empty', true) 
+          | ansible.utils.ipaddr('address'), true)
+        , omit )}}"
 
 - name: Set netplan_override network config
   set_fact:
